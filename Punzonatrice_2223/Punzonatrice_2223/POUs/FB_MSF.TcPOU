@@ -3,17 +3,54 @@
   <POU Name="FB_MSF" Id="{8958899a-8fff-4e45-a6bb-190687dc6c0a}" SpecialFunc="None">
     <Declaration><![CDATA[FUNCTION_BLOCK FB_MSF
 VAR_INPUT
+	start	:	BOOL;
+	stop	:	BOOL;
+	ack		:	BOOL;
+	emerg	:	BOOL;
+	i1		:	BOOL;
+	i2		:	BOOL;
+	i3		:	BOOL;
+	i4		:	BOOL;
 END_VAR
 VAR_OUTPUT
+	q1		:	BOOL;
+	q2		:	BOOL;
+	q3		:	BOOL;
+	q4		:	BOOL;
+	lstart	:	BOOL;
+	lstop	:	BOOL;
+	lack	:	BOOL;
 END_VAR
 VAR
+	// enumeratore privato degli stati, la variabile stato parte da S0
+	stato : (S0, S1, S2, S3, S4, S5, S6, S7, S8, SE, SA) := S0;
+	
+	// timer T34 attesa dopo caricamento
+	T34		:	TON();
+	T82		:	TON();
+	
+	// bit di abilitazione
+	enable	:	BOOL;
+	
+	// bit delle transizioni
+	tr_01	:	BOOL;
+	tr_02	:	BOOL;
+	tr_12	:	BOOL;
+	tr_23	:	BOOL;
+	tr_34	:	BOOL;
+	tr_45	:	BOOL;
+	tr_56	:	BOOL;
+	tr_67	:	BOOL;
+	tr_78	:	BOOL;
+	tr_80	:	BOOL;
+	tr_82	:	BOOL;
+	tr_EA	:	BOOL;
+	tr_A0	:	BOOL;
+	
 END_VAR
 ]]></Declaration>
     <Implementation>
       <ST><![CDATA[]]></ST>
     </Implementation>
-    <LineIds Name="FB_MSF">
-      <LineId Id="9" Count="0" />
-    </LineIds>
   </POU>
 </TcPlcObject>
