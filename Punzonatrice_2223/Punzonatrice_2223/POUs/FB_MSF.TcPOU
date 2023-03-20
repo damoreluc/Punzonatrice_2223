@@ -29,6 +29,9 @@ VAR
 	T34		:	TON();
 	T82		:	TON();
 	
+	// lampeggiatore
+	osc	:	FB_Oscillatore();
+	
 	// bit di abilitazione
 	enable	:	BOOL;
 	
@@ -47,17 +50,132 @@ VAR
 	tr_EA	:	BOOL;
 	tr_A0	:	BOOL;
 	
+	// memoria dello stop nominale
+	mArresto:	BOOL := FALSE;
+	
+	// memoria di un pezzo in lavorazione sul nastro
+	mPezzoCarico	:	BOOL := FALSE;
+	
 END_VAR
 ]]></Declaration>
     <Implementation>
-      <ST><![CDATA[// qui codifico la MSF in ST
+      <ST><![CDATA[// 1. aggiornamento condizioni di abilitazione
+enable := stop AND emerg;
 
-//commento di test]]></ST>
+// 2. aggiornamento di timers, contatori, triggers sui fronti
+T34(IN := (stato = S3 AND enable), PT := T#2S );
+T82(IN := (stato = S8 AND enable), PT := T#3S );
+osc(enable := (stato = SA) OR (stato = SE), t_high := T#500MS, t_low := T#500MS);
+
+// 3. condizione di arresto nominale
+IF NOT stop AND emerg THEN
+	IF (stato = S1 OR stato = S2) THEN
+		stato := S0;
+	ELSIF (stato = S3 OR stato = S4 OR stato = S5 OR stato = S6 OR stato = S7 OR stato = S8) THEN
+		mArresto := TRUE;
+	END_IF
+END_IF
+
+// 4. condizione di arresto di emergenza
+IF NOT emerg THEN
+	stato := SE;
+END_IF
+
+// 5. aggiornamento delle condizioni di transizione
+tr_01 := NOT(i3) AND start AND enable;
+tr_02 := i3 AND start AND enable;
+tr_12 := i3 AND enable; 
+tr_23 := enable AND NOT(i1);
+tr_34 := enable AND NOT(i1) AND T34.Q;
+tr_45 := NOT(i2) AND enable;
+tr_56 := enable AND i4;
+tr_67 := enable AND i3;
+tr_78 := enable AND NOT(i1);
+tr_80 := enable AND mArresto;
+tr_82 := enable AND NOT(mArresto) AND i1 AND T82.Q;
+tr_EA := emerg AND ack;
+tr_A0 := (mPezzoCarico AND NOT(i1) AND i3) OR (NOT(mPezzoCarico) AND i3);
+
+// 6. switch-case della MSF
+CASE stato OF
+S0:
+	mArresto := FALSE;
+	mPezzoCarico := FALSE;
+    IF tr_02 THEN
+    	stato := S2;
+    ELSIF tr_01 THEN
+		stato := S1;
+    END_IF	
+	
+S1:
+	IF tr_12 THEN
+		stato := S2;
+	END_IF
+
+S2:
+	mPezzoCarico := FALSE;
+	IF tr_23 THEN
+		stato := S3;
+	END_IF
+
+S3:
+	mPezzoCarico := TRUE;
+	IF tr_34 THEN
+		stato := S4;
+	END_IF	
+
+S4:
+	IF tr_45 THEN
+		stato := S5;
+	END_IF
+	
+S5:
+	IF tr_56 THEN
+		stato := S6;
+	END_IF
+
+S6:
+	IF tr_67 THEN
+		stato := S7;
+	END_IF
+
+S7:
+	IF tr_78 THEN
+		stato := S8;
+	END_IF
+
+S8:
+	IF tr_80 THEN
+    	stato := S0;
+    ELSIF tr_82 THEN
+		stato := S2;
+    END_IF
+
+SE:
+	IF tr_EA THEN
+		stato := SA;
+	END_IF
+
+SA:
+	IF tr_A0 THEN
+		stato := S0;
+	END_IF
+
+ELSE
+	// fail over: la variabile di stato è danneggiata, vai in SE
+	stato := SE;	
+	
+END_CASE
+
+// 7. comando uscite
+lstart := (stato <> S0);
+lstop := (stato = S0) OR ((stato = SE) AND osc.Q);
+lack := (stato = SE) OR ((stato = SA) AND osc.Q);
+q1 := (stato = S4);
+q2 := (stato = S7) OR ((stato = SA) AND mPezzoCarico);
+q3 := (stato = S1) OR (stato = S6) OR ((stato = SA) AND NOT(i3));
+q4 := (stato = S5);
+]]></ST>
     </Implementation>
-    <LineIds Name="FB_MSF">
-      <LineId Id="2" Count="0" />
-      <LineId Id="51" Count="0" />
-      <LineId Id="50" Count="0" />
-    </LineIds>
   </POU>
 </TcPlcObject>
